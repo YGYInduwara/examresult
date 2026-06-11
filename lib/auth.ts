@@ -1,6 +1,7 @@
 import NextAuth from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
-import { prisma } from '@/lib/db'
+import { connectDB } from '@/lib/db'
+import { User } from '@/lib/models/User'
 import bcrypt from 'bcryptjs'
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
@@ -14,9 +15,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
-        })
+        await connectDB()
+        const user = await User.findOne({ email: credentials.email as string })
 
         if (!user) return null
 
@@ -28,7 +28,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (!passwordMatch) return null
 
         return {
-          id: user.id,
+          id: user._id.toString(),
           name: user.name,
           email: user.email,
         }
@@ -45,7 +45,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return token
     },
     async session({ session, token }) {
-      if (token?.id) session.user.id = token.id as string
+      const id = token.id as string | undefined
+      if (id && /^[0-9a-fA-F]{24}$/.test(id)) session.user.id = id
       return session
     },
   },

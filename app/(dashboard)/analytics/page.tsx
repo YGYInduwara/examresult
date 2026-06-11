@@ -1,7 +1,9 @@
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/db'
+import { connectDB } from '@/lib/db'
+import { PaperAttempt } from '@/lib/models/PaperAttempt'
 import { calcPercentage } from '@/lib/utils'
 import AnalyticsClient from './AnalyticsClient'
+import mongoose from 'mongoose'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,10 +11,10 @@ export default async function AnalyticsPage() {
   const session = await auth()
   if (!session?.user?.id) return null
 
-  const attempts = await prisma.paperAttempt.findMany({
-    where: { userId: session.user.id },
-    orderBy: [{ examYear: 'asc' }, { subject: 'asc' }],
-  })
+  await connectDB()
+  const attempts = await PaperAttempt.find({
+    userId: new mongoose.Types.ObjectId(session.user.id),
+  }).sort({ examYear: 1, subject: 1 })
 
   // Group by subject → year → paper type → attempts
   const bySubject: Record<string, Record<number, { paper1: number[]; paper2: number[] }>> = {}

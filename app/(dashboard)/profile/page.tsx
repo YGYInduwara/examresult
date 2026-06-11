@@ -1,7 +1,10 @@
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/db'
+import { connectDB } from '@/lib/db'
+import { User } from '@/lib/models/User'
+import { PaperAttempt } from '@/lib/models/PaperAttempt'
 import { Card, CardBody } from '@/components/ui/Card'
 import { calcPercentage, getSubjectLabel, formatDate } from '@/lib/utils'
+import mongoose from 'mongoose'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,13 +12,10 @@ export default async function ProfilePage() {
   const session = await auth()
   if (!session?.user?.id) return null
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { id: true, name: true, email: true, createdAt: true },
-  })
-
-  const attempts = await prisma.paperAttempt.findMany({
-    where: { userId: session.user.id },
+  await connectDB()
+  const user = await User.findById(session.user.id)
+  const attempts = await PaperAttempt.find({
+    userId: new mongoose.Types.ObjectId(session.user.id),
   })
 
   const subjects = [...new Set(attempts.map((a) => a.subject))]

@@ -1,14 +1,17 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/db'
+import { connectDB } from '@/lib/db'
+import { PaperAttempt } from '@/lib/models/PaperAttempt'
+import mongoose from 'mongoose'
 
 export async function GET() {
   const session = await auth()
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const attempts = await prisma.paperAttempt.findMany({
-    where: { userId: session.user.id },
-    orderBy: [{ examYear: 'asc' }, { subject: 'asc' }],
+  await connectDB()
+  const attempts = await PaperAttempt.find({ userId: new mongoose.Types.ObjectId(session.user.id) }).sort({
+    examYear: 1,
+    subject: 1,
   })
 
   // Group by subject for per-subject analytics

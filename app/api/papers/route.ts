@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/db'
-import { Prisma } from '@prisma/client'
+import { connectDB } from '@/lib/db'
+import { PaperAttempt } from '@/lib/models/PaperAttempt'
+import mongoose from 'mongoose'
 
 export async function GET(req: Request) {
   const session = await auth()
@@ -11,13 +12,17 @@ export async function GET(req: Request) {
   const subject = searchParams.get('subject')
   const year = searchParams.get('year')
 
-  const attempts = await prisma.paperAttempt.findMany({
-    where: {
-      userId: session.user.id,
-      ...(subject && { subject }),
-      ...(year && { examYear: parseInt(year) }),
-    },
-    orderBy: [{ examYear: 'desc' }, { subject: 'asc' }, { paperType: 'asc' }, { attemptNo: 'asc' }],
+  await connectDB()
+
+  const where: any = { userId: new mongoose.Types.ObjectId(session.user.id) }
+  if (subject) where.subject = subject
+  if (year) where.examYear = parseInt(year)
+
+  const attempts = await PaperAttempt.find(where).sort({
+    examYear: -1,
+    subject: 1,
+    paperType: 1,
+    attemptNo: 1,
   })
 
   return NextResponse.json({ attempts })
@@ -34,49 +39,46 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
 
-  if (marks < 0 || marks > totalMarks) {
+  if (marks < 0 || marks > (totalMarks ?? 100)) {
     return NextResponse.json({ error: 'Marks must be between 0 and total marks' }, { status: 400 })
   }
 
   try {
-    // Check if entry already exists
-    const existing = await prisma.paperAttempt.findUnique({
-      where: {
-        userId_examYear_subject_paperType_attemptNo: {
-          userId: session.user.id,
-          examYear,
-          subject,
-          paperType,
-          attemptNo,
-        },
-      },
+    await connectDB()
+
+    const existing = await PaperAttempt.findOne({
+      userId: session.user.id,
+      examYear,
+      subject,
+      paperType,
+      attemptNo,
     })
 
     if (existing) {
-      return NextResponse.json({
-        error: 'This entry already exists. Delete it first if you want to change it.'
-      }, { status: 409 })
+      return NextResponse.json(
+        { error: 'This entry already exists. Delete it first if you want to change it.' },
+        { status: 409 }
+      )
     }
 
-    const attempt = await prisma.paperAttempt.create({
-      data: {
-        userId: session.user.id,
-        examYear,
-        subject,
-        paperType,
-        attemptNo,
-        marks,
-        totalMarks: totalMarks ?? 100,
-        notes,
-      },
+    const attempt = await PaperAttempt.create({
+      userId: session.user.id,
+      examYear,
+      subject,
+      paperType,
+      attemptNo,
+      marks,
+      totalMarks: totalMarks ?? 100,
+      notes,
     })
 
     return NextResponse.json({ attempt }, { status: 201 })
-  } catch (err) {
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-      return NextResponse.json({
-        error: 'This entry already exists. Delete it first if you want to change it.'
-      }, { status: 409 })
+  } catch (err: any) {
+    if (err.code === 11000) {
+      return NextResponse.json(
+        { error: 'This entry already exists. Delete it first if you want to change it.' },
+        { status: 409 }
+      )
     }
     return NextResponse.json({ error: 'Failed to save attempt' }, { status: 500 })
   }
@@ -90,9 +92,8 @@ export async function DELETE(req: Request) {
   const id = searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 })
 
-  await prisma.paperAttempt.deleteMany({
-    where: { id, userId: session.user.id },
-  })
+  await connectDB()
+  await PaperAttempt.deleteOne({ _id: id, userId: session.user.id })
 
   return NextResponse.json({ success: true })
 }

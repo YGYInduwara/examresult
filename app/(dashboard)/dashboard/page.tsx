@@ -1,8 +1,10 @@
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/db'
+import { connectDB } from '@/lib/db'
+import { PaperAttempt } from '@/lib/models/PaperAttempt'
 import { StatCard, Card, CardBody } from '@/components/ui/Card'
 import { getSubjectLabel, calcPercentage, getGradeBg, formatDate } from '@/lib/utils'
 import Link from 'next/link'
+import mongoose from 'mongoose'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,23 +12,19 @@ export default async function DashboardPage() {
   const session = await auth()
   if (!session?.user?.id) return null
 
-  const [attempts, totalSubjects] = await Promise.all([
-    prisma.paperAttempt.findMany({
-      where: { userId: session.user.id },
-      orderBy: { createdAt: 'desc' },
-    }),
-    prisma.paperAttempt.findMany({
-      where: { userId: session.user.id },
-      select: { subject: true },
-      distinct: ['subject'],
-    }),
-  ])
+  await connectDB()
+  const attempts = await PaperAttempt.find({
+    userId: new mongoose.Types.ObjectId(session.user.id),
+  }).sort({ createdAt: -1 })
+
+  const uniqueSubjects = [...new Set(attempts.map((a) => a.subject))]
+  const totalSubjects = uniqueSubjects.length
 
   const totalAttempts = attempts.length
   const avgScore = totalAttempts
     ? Math.round(attempts.reduce((s, a) => s + calcPercentage(a.marks, a.totalMarks), 0) / totalAttempts)
     : 0
-  const subjectCount = totalSubjects.length
+  const subjectCount = totalSubjects
   const bestScore = totalAttempts
     ? Math.max(...attempts.map((a) => calcPercentage(a.marks, a.totalMarks)))
     : 0
@@ -184,7 +182,7 @@ export default async function DashboardPage() {
                 {recent.map((a) => {
                   const pct = calcPercentage(a.marks, a.totalMarks)
                   return (
-                    <div key={a.id} className="px-6 py-3 flex items-center gap-3">
+                    <div key={a._id?.toString()} className="px-6 py-3 flex items-center gap-3">
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0 border ${getGradeBg(pct)}`}>
                         {pct}%
                       </div>

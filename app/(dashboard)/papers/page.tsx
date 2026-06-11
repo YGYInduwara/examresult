@@ -1,9 +1,9 @@
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/db'
-import { Card } from '@/components/ui/Card'
-import { getSubjectLabel, calcPercentage, getGradeBg, formatDate } from '@/lib/utils'
-import { AL_SUBJECTS, EXAM_YEARS } from '@/types'
+import { connectDB } from '@/lib/db'
+import { PaperAttempt } from '@/lib/models/PaperAttempt'
+import { calcPercentage } from '@/lib/utils'
 import PapersClient from './PapersClient'
+import mongoose from 'mongoose'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,13 +11,13 @@ export default async function PapersPage() {
   const session = await auth()
   if (!session?.user?.id) return null
 
-  const attempts = await prisma.paperAttempt.findMany({
-    where: { userId: session.user.id },
-    orderBy: [{ examYear: 'desc' }, { subject: 'asc' }, { paperType: 'asc' }, { attemptNo: 'asc' }],
-  })
+  await connectDB()
+  const attempts = await PaperAttempt.find({
+    userId: new mongoose.Types.ObjectId(session.user.id),
+  }).sort({ examYear: -1, subject: 1, paperType: 1, attemptNo: 1 })
 
   const serialized = attempts.map((a) => ({
-    ...a,
+    ...a.toObject(),
     createdAt: a.createdAt.toISOString(),
     updatedAt: a.updatedAt.toISOString(),
     pct: calcPercentage(a.marks, a.totalMarks),
