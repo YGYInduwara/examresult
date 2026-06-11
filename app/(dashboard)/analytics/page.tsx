@@ -67,7 +67,7 @@ export default async function AnalyticsPage() {
   const subjects = Object.keys(bySubject)
   const totalAttempts = attempts.length
   const avgScore = totalAttempts
-    ? Math.round(attempts.reduce((s, a) => s + calcPercentage(a.marks, a.totalMarks), 0) / totalAttempts)
+    ? Math.round(attempts.reduce((s: number, a) => s + calcPercentage(a.marks, a.totalMarks), 0) / totalAttempts)
     : 0
 
   return (
