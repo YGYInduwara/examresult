@@ -1,0 +1,37 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  password      String
+  avatar        String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  attempts      PaperAttempt[]
+}
+
+model PaperAttempt {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  examYear    Int
+  subject     String
+  paperType   String   // "paper1" | "paper2"
+  attemptNo   Int      // 1, 2, or 3
+  marks       Float
+  totalMarks  Float    @default(100)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, examYear, subject, paperType, attemptNo])
+  @@index([userId, subject])
+  @@index([userId, examYear])
+}
