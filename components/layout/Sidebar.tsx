@@ -107,7 +107,7 @@ export default function Sidebar() {
       {/* User */}
       <div className="px-3 py-4 border-t border-slate-100">
         <div className="flex items-center gap-3 px-3 py-3 rounded-xl bg-slate-50 mb-2">
-          <div className="w-8 h-8 rounded-full bg-linear-to-br from-violet-500 to-indigo-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+          <div className="w-8 h-8 rounded-full bg-linear-to-br from-violet-500 to-indigo-500 flex items-center justify-center text-white text-sm font-bold shrink-0">
             {session?.user?.name?.[0]?.toUpperCase() ?? '?'}
           </div>
           <div className="min-w-0">
